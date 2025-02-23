@@ -3,6 +3,7 @@ from services.models import Service, ServiceCategory, Provider, ServiceListing, 
 from django.contrib.auth.models import User
 from django.contrib.auth.password_validation import validate_password
 from django.utils import timezone
+from django.contrib.auth import get_user_model
 
 class ProviderSerializer(serializers.ModelSerializer):
     class Meta:
@@ -29,8 +30,9 @@ class ServiceSerializer(serializers.ModelSerializer):
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
-        model = User
-        fields = ['id', 'username', 'email', 'first_name', 'last_name']
+        model = get_user_model()
+        fields = ('id', 'username', 'email', 'first_name', 'last_name')
+        read_only_fields = ('id',)
 
 class BookingSerializer(serializers.ModelSerializer):
     service_details = ServiceListingSerializer(source='service_listing', read_only=True)

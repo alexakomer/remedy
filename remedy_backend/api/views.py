@@ -7,6 +7,7 @@ from .serializers import UserSerializer, BookingSerializer, ServiceSerializer, S
 from services.models import Booking, Service, ServiceListing, Provider
 from datetime import datetime, timedelta
 from django.utils import timezone
+from django.contrib.auth import get_user_model
 
 # Create your views here.
 
@@ -140,3 +141,12 @@ def register_user(request):
             "error": "Registration failed",
             "details": str(e)
         }, status=status.HTTP_400_BAD_REQUEST)
+
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def user_profile(request):
+    """
+    Get the current user's profile
+    """
+    serializer = UserSerializer(request.user)
+    return Response(serializer.data)
