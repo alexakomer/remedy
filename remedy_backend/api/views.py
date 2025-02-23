@@ -28,33 +28,32 @@ class BookingViewSet(viewsets.ModelViewSet):
             status='pending'
         )
 
-    def create(self, request, *args, **kwargs):
+    def partial_update(self, request, *args, **kwargs):
         try:
-            return super().create(request, *args, **kwargs)
-        except serializers.ValidationError as e:
-            error_message = str(e.detail) if isinstance(e.detail, str) else str(e.detail.get(next(iter(e.detail))))
-            return Response(
-                {'error': error_message},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            instance = self.get_object()
+            serializer = self.get_serializer(instance, data=request.data, partial=True)
+            serializer.is_valid(raise_exception=True)
+            
+            # Additional validation for cancellations
+            if request.data.get('status') == 'cancelled':
+                if instance.status == 'cancelled':
+                    return Response(
+                        {'error': 'Booking is already cancelled'},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+                if instance.date < timezone.now().date():
+                    return Response(
+                        {'error': 'Cannot cancel past bookings'},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+            
+            self.perform_update(serializer)
+            return Response(serializer.data)
         except Exception as e:
             return Response(
                 {'error': str(e)},
                 status=status.HTTP_400_BAD_REQUEST
             )
-
-    @action(detail=True, methods=['post'])
-    def cancel(self, request, pk=None):
-        booking = self.get_object()
-        # Only allow cancellation of pending or confirmed bookings
-        if booking.status in ['pending', 'confirmed']:
-            booking.status = 'cancelled'
-            booking.save()
-            return Response({'status': 'Booking cancelled'})
-        return Response(
-            {'error': 'Cannot cancel this booking'},
-            status=status.HTTP_400_BAD_REQUEST
-        )
 
     @action(detail=False, methods=['get'])
     def upcoming(self, request):

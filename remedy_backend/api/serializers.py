@@ -51,30 +51,36 @@ class BookingSerializer(serializers.ModelSerializer):
             'status', 
             'created_at'
         ]
-        read_only_fields = ['user', 'status', 'created_at']
+        read_only_fields = ['user', 'created_at']
 
     def validate(self, data):
         """
         Check that the booking date and time are valid
         """
-        # Ensure date is not in the past
-        if data['date'] < timezone.now().date():
-            raise serializers.ValidationError("Cannot book for a past date")
-        
-        # Check if the time slot is available
-        listing = data['service_listing']
-        booking_time = data['time']
-        
-        # Convert day of week to string format used in available_days
-        booking_day = str(data['date'].weekday())
-        
-        # Check if service is available on this day
-        if booking_day not in listing.available_days.split(','):
-            raise serializers.ValidationError("Service is not available on this day")
-        
-        # Check if time is within provider's hours
-        if booking_time < listing.start_time or booking_time > listing.end_time:
-            raise serializers.ValidationError("Selected time is outside of provider's working hours")
+        # Skip validation for partial updates (like status changes)
+        if self.partial and 'status' in data and len(data) == 1:
+            return data
+
+        # Only validate date and time for new bookings or reschedules
+        if 'date' in data:
+            if data['date'] < timezone.now().date():
+                raise serializers.ValidationError("Cannot book for a past date")
+            
+            # Check if the time slot is available
+            listing = data.get('service_listing', self.instance.service_listing if self.instance else None)
+            booking_time = data.get('time', self.instance.time if self.instance else None)
+            
+            if listing and booking_time:
+                # Convert day of week to string format used in available_days
+                booking_day = str(data['date'].weekday())
+                
+                # Check if service is available on this day
+                if booking_day not in listing.available_days.split(','):
+                    raise serializers.ValidationError("Service is not available on this day")
+                
+                # Check if time is within provider's hours
+                if booking_time < listing.start_time or booking_time > listing.end_time:
+                    raise serializers.ValidationError("Selected time is outside of provider's working hours")
         
         return data
 
