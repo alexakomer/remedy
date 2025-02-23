@@ -17,7 +17,8 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from api.views import (ServiceViewSet, ServiceListingViewSet, 
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+from api.views import (register_user, ServiceViewSet, ServiceListingViewSet, 
                       ProviderViewSet, BookingViewSet)
 
 router = DefaultRouter()
@@ -29,4 +30,7 @@ router.register(r'bookings', BookingViewSet, basename='booking')
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include(router.urls)),
+    path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
+    path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    path('api/register/', register_user, name='register'),
 ]

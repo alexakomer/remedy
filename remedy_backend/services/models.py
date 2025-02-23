@@ -18,6 +18,7 @@ class Provider(models.Model):
     years_of_experience = models.IntegerField(default=0)
     rating = models.DecimalField(max_digits=3, decimal_places=2, default=5.00)
     service_area = models.CharField(max_length=200, help_text="Area where provider offers services")
+    # Consider replacing service_area with a zip code and a radius
     
     def __str__(self):
         return self.business_name

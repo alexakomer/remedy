@@ -1,11 +1,12 @@
 from django.shortcuts import render
-from rest_framework import viewsets, permissions, status
-from rest_framework.decorators import action
+from rest_framework import viewsets, permissions, status, serializers
+from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
 from django.contrib.auth.models import User
-from .serializers import UserSerializer, BookingSerializer, ServiceSerializer, ServiceListingSerializer, ProviderSerializer
+from .serializers import UserSerializer, BookingSerializer, ServiceSerializer, ServiceListingSerializer, ProviderSerializer, UserRegistrationSerializer
 from services.models import Booking, Service, ServiceListing, Provider
 from datetime import datetime, timedelta
+from django.utils import timezone
 
 # Create your views here.
 
@@ -19,11 +20,28 @@ class BookingViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        # Users can only see their own bookings
         return Booking.objects.filter(user=self.request.user)
 
     def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
+        serializer.save(
+            user=self.request.user,
+            status='pending'
+        )
+
+    def create(self, request, *args, **kwargs):
+        try:
+            return super().create(request, *args, **kwargs)
+        except serializers.ValidationError as e:
+            error_message = str(e.detail) if isinstance(e.detail, str) else str(e.detail.get(next(iter(e.detail))))
+            return Response(
+                {'error': error_message},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        except Exception as e:
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
     @action(detail=True, methods=['post'])
     def cancel(self, request, pk=None):
@@ -99,3 +117,27 @@ class ProviderViewSet(viewsets.ReadOnlyModelViewSet):
             
         serializer = ServiceListingSerializer(listings, many=True)
         return Response(serializer.data)
+
+@api_view(['POST'])
+@permission_classes([permissions.AllowAny])
+def register_user(request):
+    try:
+        serializer = UserRegistrationSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({
+                "message": "User registered successfully",
+                "username": serializer.validated_data['username']
+            }, status=status.HTTP_201_CREATED)
+        
+        # Provide more detailed error messages
+        errors = {}
+        for field, error_list in serializer.errors.items():
+            errors[field] = str(error_list[0])
+        return Response({"errors": errors}, status=status.HTTP_400_BAD_REQUEST)
+    
+    except Exception as e:
+        return Response({
+            "error": "Registration failed",
+            "details": str(e)
+        }, status=status.HTTP_400_BAD_REQUEST)
